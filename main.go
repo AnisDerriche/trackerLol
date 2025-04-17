@@ -4,23 +4,37 @@ import (
 	"database/sql"
 	"fmt"
 	"log"
+	"net/http"
 
+	"github.com/gin-gonic/gin"
 	"github.com/go-sql-driver/mysql"
 	_ "github.com/go-sql-driver/mysql"
 )
 
 var dsn = "anis:anisynov@tcp(100.42.185.129:3306)/trackerloldb"
 
+type User struct {
+	Name        string        `json:"name"`
+	Email       string        `json:"email"`
+	Time_create string        `json:"time_create"`
+	Mdp         sql.NullInt64 `json:"mdp"`
+}
+
 func main() {
+	r := gin.Default()
+	r.POST("/register", handleUserRegister)
+	r.POST("/login", handleUserLogin)
 	db, _ := bdd()
 	defer db.Close()
-	insertUser(db, "tom", "tesst@test.com", "2023-10-01 12:00:00", sql.NullInt64{Int64: 123456, Valid: true})
+	//insertUser(db, "tom", "tesst@test.com", "2023-10-01 12:00:00", sql.NullInt64{Int64: 123456, Valid: true})
+	deleteUser(db, "tesst@test.com")
 	openbdd()
 }
 
 func bdd() (*sql.DB, error) {
 	return sql.Open("mysql", dsn)
 }
+
 func openbdd() {
 	db, err := bdd()
 	if err != nil {
@@ -95,4 +109,57 @@ func deleteUser(db *sql.DB, email string) error {
 		return fmt.Errorf("Erreur lors de la suppression de l'utilisateur : %v", err)
 	}
 	return nil
+}
+
+func handleUserRegister(apagnan *gin.Context) {
+	var user User
+	if err := apagnan.ShouldBindJSON(&user); err != nil {
+		apagnan.JSON(http.StatusBadRequest, gin.H{"error": "Invalid input"})
+		return
+	}
+
+	db, err := bdd()
+	if err != nil {
+		apagnan.JSON(http.StatusInternalServerError, gin.H{"error": "Database connection error"})
+		return
+	}
+	defer db.Close()
+
+	err = insertUser(db, user.Name, user.Email, user.Time_create, user.Mdp)
+	if err != nil {
+		apagnan.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
+		return
+	}
+
+	apagnan.JSON(http.StatusOK, gin.H{"message": "User registered successfully"})
+}
+
+func handleUserLogin(apagnan *gin.Context) {
+	var user User
+	if err := apagnan.ShouldBindJSON(&user); err != nil {
+		apagnan.JSON(http.StatusBadRequest, gin.H{"error": "Invalid input"})
+		return
+	}
+
+	db, err := bdd()
+	if err != nil {
+		apagnan.JSON(http.StatusInternalServerError, gin.H{"error": "Database connection error"})
+		return
+	}
+	defer db.Close()
+
+	query := "SELECT email, mdp FROM users WHERE email = ? AND mdp = ?"
+	row := db.QueryRow(query, user.Email, user.Mdp)
+
+	err = row.Scan(&user.Email, &user.Mdp)
+	if err != nil {
+		if err == sql.ErrNoRows {
+			apagnan.JSON(http.StatusUnauthorized, gin.H{"error": "Invalid credentials"})
+			return
+		}
+		apagnan.JSON(http.StatusInternalServerError, gin.H{"error": "Database query error"})
+		return
+	}
+
+	apagnan.JSON(http.StatusOK, gin.H{"message": "Login successful", "user": user.Name})
 }
