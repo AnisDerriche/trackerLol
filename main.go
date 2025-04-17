@@ -81,9 +81,9 @@ func insertUser(db *sql.DB, name string, email string, time_create string, mdp s
 	return nil
 }
 
-func deleteUser(db *sql.DB, id int) error {
-	query := "DELETE FROM users WHERE id = ?"
-	_, err := db.Exec(query, id)
+func deleteUser(db *sql.DB, email string) error {
+	query := "DELETE FROM users WHERE email = ?"
+	_, err := db.Exec(query, email)
 	if err != nil {
 		return fmt.Errorf("Erreur lors de la suppression de l'utilisateur : %v", err)
 	}
