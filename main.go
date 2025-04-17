@@ -5,12 +5,16 @@ import (
 	"fmt"
 	"log"
 
+	"github.com/go-sql-driver/mysql"
 	_ "github.com/go-sql-driver/mysql"
 )
 
 var dsn = "anis:anisynov@tcp(100.42.185.129:3306)/trackerloldb"
 
 func main() {
+	db, _ := bdd()
+	defer db.Close()
+	insertUser(db, "tom", "tesst@test.com", "2023-10-01 12:00:00", sql.NullInt64{Int64: 123456, Valid: true})
 	openbdd()
 }
 
@@ -76,6 +80,9 @@ func insertUser(db *sql.DB, name string, email string, time_create string, mdp s
 	query := "INSERT INTO users (name, email, time_create, mdp) VALUES (?, ?, ?, ?)"
 	_, err := db.Exec(query, name, email, time_create, mdp)
 	if err != nil {
+		if mysqlErr, ok := err.(*mysql.MySQLError); ok && mysqlErr.Number == 1062 {
+			return fmt.Errorf("L'email %s est déjà utilisé", email)
+		}
 		return fmt.Errorf("Erreur lors de l'insertion de l'utilisateur : %v", err)
 	}
 	return nil
