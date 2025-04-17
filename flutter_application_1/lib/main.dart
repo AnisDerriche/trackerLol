@@ -1,4 +1,6 @@
 import 'package:flutter/material.dart';
+import 'dart:convert';
+import 'package:http/http.dart' as http;
 
 void main() {
   runApp(const MyApp());
@@ -7,116 +9,187 @@ void main() {
 class MyApp extends StatelessWidget {
   const MyApp({super.key});
 
-  // This widget is the root of your application.
   @override
   Widget build(BuildContext context) {
     return MaterialApp(
-      title: 'Flutter Demo',
+      title: 'LoL Stats Tracker',
       theme: ThemeData(
-        // This is the theme of your application.
-        //
-        // TRY THIS: Try running your application with "flutter run". You'll see
-        // the application has a purple toolbar. Then, without quitting the app,
-        // try changing the seedColor in the colorScheme below to Colors.green
-        // and then invoke "hot reload" (save your changes or press the "hot
-        // reload" button in a Flutter-supported IDE, or press "r" if you used
-        // the command line to start the app).
-        //
-        // Notice that the counter didn't reset back to zero; the application
-        // state is not lost during the reload. To reset the state, use hot
-        // restart instead.
-        //
-        // This works for code too, not just values: Most code changes can be
-        // tested with just a hot reload.
-        colorScheme: ColorScheme.fromSeed(seedColor: Colors.deepPurple),
+        primarySwatch: Colors.blueGrey,
+        colorScheme: ColorScheme.fromSeed(seedColor: Colors.blueGrey),
       ),
-      home: const MyHomePage(title: 'Flutter Demo Home Page'),
+      home: const HomePage(title: 'LoL Stats Tracker'),
     );
   }
 }
 
-class MyHomePage extends StatefulWidget {
-  const MyHomePage({super.key, required this.title});
+class SummonerStats {
+  final String summonerName;
+  final String tier;
+  final String rank;
+  final int wins;
+  final int losses;
 
-  // This widget is the home page of your application. It is stateful, meaning
-  // that it has a State object (defined below) that contains fields that affect
-  // how it looks.
+  SummonerStats({
+    required this.summonerName,
+    required this.tier,
+    required this.rank,
+    required this.wins,
+    required this.losses,
+  });
 
-  // This class is the configuration for the state. It holds the values (in this
-  // case the title) provided by the parent (in this case the App widget) and
-  // used by the build method of the State. Fields in a Widget subclass are
-  // always marked "final".
+  factory SummonerStats.fromJson(Map<String, dynamic> json) {
+    return SummonerStats(
+      summonerName: json['summonerName'],
+      tier: json['tier'],
+      rank: json['rank'],
+      wins: json['wins'],
+      losses: json['losses'],
+    );
+  }
+}
 
+class ApiService {
+  static const _apiKey = 'notre api key riot';
+  static const _baseUrl = 'https://euw1.api.riotgames.com';
+  
+  static Future<SummonerStats> fetchStats(String summonerName) async {
+    final summonerResponse = await http.get(
+      Uri.parse('$_baseUrl/lol/summoner/v4/summoners/by-name/$summonerName?api_key=$_apiKey'),
+    );
+    if (summonerResponse.statusCode != 200) {
+      throw Exception('Summoner not found');
+    }
+    final summonerData = json.decode(summonerResponse.body);
+    final id = summonerData['id'];
+
+    final leagueResponse = await http.get(
+      Uri.parse('$_baseUrl/lol/league/v4/entries/by-summoner/$id?api_key=$_apiKey'),
+    );
+    if (leagueResponse.statusCode != 200) {
+      throw Exception('League data not available');
+    }
+    final list = json.decode(leagueResponse.body) as List;
+    final soloQueue = list.firstWhere(
+      (entry) => entry['queueType'] == 'RANKED_SOLO_5x5',
+      orElse: () => null,
+    );
+    if (soloQueue == null) {
+      throw Exception('No solo queue data');
+    }
+
+    return SummonerStats(
+      summonerName: summonerData['name'],
+      tier: soloQueue['tier'],
+      rank: soloQueue['rank'],
+      wins: soloQueue['wins'],
+      losses: soloQueue['losses'],
+    );
+  }
+}
+
+class HomePage extends StatefulWidget {
+  const HomePage({super.key, required this.title});
   final String title;
 
   @override
-  State<MyHomePage> createState() => _MyHomePageState();
+  State<HomePage> createState() => _HomePageState();
 }
 
-class _MyHomePageState extends State<MyHomePage> {
-  int _counter = 0;
+class _HomePageState extends State<HomePage> {
+  final TextEditingController _controller = TextEditingController();
+  bool _loading = false;
+  SummonerStats? _stats;
+  String? _error;
 
-  void _incrementCounter() {
+  Future<void> _getStats() async {
     setState(() {
-      // This call to setState tells the Flutter framework that something has
-      // changed in this State, which causes it to rerun the build method below
-      // so that the display can reflect the updated values. If we changed
-      // _counter without calling setState(), then the build method would not be
-      // called again, and so nothing would appear to happen.
-      _counter++;
+      _loading = true;
+      _error = null;
+      _stats = null;
     });
+    try {
+      final stats = await ApiService.fetchStats(_controller.text.trim());
+      setState(() {
+        _stats = stats;
+      });
+    } catch (e) {
+      setState(() {
+        _error = e.toString();
+      });
+    } finally {
+      setState(() {
+        _loading = false;
+      });
+    }
+  }
+
+  @override
+  void dispose() {
+    _controller.dispose();
+    super.dispose();
+  }
+
+  Widget _buildStatsCard(SummonerStats stats) {
+    return Card(
+      margin: const EdgeInsets.symmetric(vertical: 20, horizontal: 16),
+      elevation: 4,
+      child: Padding(
+        padding: const EdgeInsets.all(16),
+        child: Column(
+          children: [
+            Text(
+              stats.summonerName,
+              style: Theme.of(context).textTheme.headlineSmall,
+            ),
+            const SizedBox(height: 8),
+            Text('${stats.tier} ${stats.rank}'),
+            const SizedBox(height: 8),
+            Text('Wins: ${stats.wins}'),
+            Text('Losses: ${stats.losses}'),
+            const SizedBox(height: 8),
+            Text('Win Rate: ${((stats.wins / (stats.wins + stats.losses)) * 100).toStringAsFixed(1)}%'),
+          ],
+        ),
+      ),
+    );
   }
 
   @override
   Widget build(BuildContext context) {
-    // This method is rerun every time setState is called, for instance as done
-    // by the _incrementCounter method above.
-    //
-    // The Flutter framework has been optimized to make rerunning build methods
-    // fast, so that you can just rebuild anything that needs updating rather
-    // than having to individually change instances of widgets.
     return Scaffold(
       appBar: AppBar(
-        // TRY THIS: Try changing the color here to a specific color (to
-        // Colors.amber, perhaps?) and trigger a hot reload to see the AppBar
-        // change color while the other colors stay the same.
-        backgroundColor: Theme.of(context).colorScheme.inversePrimary,
-        // Here we take the value from the MyHomePage object that was created by
-        // the App.build method, and use it to set our appbar title.
         title: Text(widget.title),
       ),
-      body: Center(
-        // Center is a layout widget. It takes a single child and positions it
-        // in the middle of the parent.
+      body: Padding(
+        padding: const EdgeInsets.all(16),
         child: Column(
-          // Column is also a layout widget. It takes a list of children and
-          // arranges them vertically. By default, it sizes itself to fit its
-          // children horizontally, and tries to be as tall as its parent.
-          //
-          // Column has various properties to control how it sizes itself and
-          // how it positions its children. Here we use mainAxisAlignment to
-          // center the children vertically; the main axis here is the vertical
-          // axis because Columns are vertical (the cross axis would be
-          // horizontal).
-          //
-          // TRY THIS: Invoke "debug painting" (choose the "Toggle Debug Paint"
-          // action in the IDE, or press "p" in the console), to see the
-          // wireframe for each widget.
-          mainAxisAlignment: MainAxisAlignment.center,
-          children: <Widget>[
-            const Text('You have pushed the button this many times:'),
-            Text(
-              '$_counter',
-              style: Theme.of(context).textTheme.headlineMedium,
+          children: [
+            TextField(
+              controller: _controller,
+              decoration: const InputDecoration(
+                labelText: 'Summoner Name',
+                border: OutlineInputBorder(),
+              ),
+              onSubmitted: (_) => _getStats(),
             ),
+            const SizedBox(height: 12),
+            ElevatedButton(
+              onPressed: _loading ? null : _getStats,
+              child: _loading
+                  ? const CircularProgressIndicator()
+                  : const Text('Get Stats'),
+            ),
+            if (_error != null) ...[
+              const SizedBox(height: 12),
+              Text(
+                _error!,
+                style: const TextStyle(color: Colors.red),
+              ),
+            ],
+            if (_stats != null) _buildStatsCard(_stats!),
           ],
         ),
       ),
-      floatingActionButton: FloatingActionButton(
-        onPressed: _incrementCounter,
-        tooltip: 'Increment',
-        child: const Icon(Icons.add),
-      ), // This trailing comma makes auto-formatting nicer for build methods.
     );
   }
 }
