@@ -8,10 +8,17 @@ import (
 	_ "github.com/go-sql-driver/mysql"
 )
 
-func main() {
-	dsn := "anis:anisynov@tcp(100.42.185.129:3306)/trackerloldb"
+var dsn = "anis:anisynov@tcp(100.42.185.129:3306)/trackerloldb"
 
-	db, err := sql.Open("mysql", dsn)
+func main() {
+	openbdd()
+}
+
+func bdd() (*sql.DB, error) {
+	return sql.Open("mysql", dsn)
+}
+func openbdd() {
+	db, err := bdd()
 	if err != nil {
 		log.Fatalf("Erreur lors de la connexion à la base de données : %v", err)
 	}
@@ -21,8 +28,6 @@ func main() {
 	if err != nil {
 		log.Fatalf("Impossible de se connecter à la base : %v", err)
 	}
-
-	fmt.Println("Connexion réussie à la base de données trackerloldb!")
 
 	rows, err := db.Query("SHOW TABLES")
 	if err != nil {
@@ -65,4 +70,22 @@ func main() {
 	if err := rows.Err(); err != nil {
 		log.Fatalf("Erreur lors du traitement des lignes : %v", err)
 	}
+}
+
+func insertUser(db *sql.DB, name string, email string, time_create string, mdp sql.NullInt64) error {
+	query := "INSERT INTO users (name, email, time_create, mdp) VALUES (?, ?, ?, ?)"
+	_, err := db.Exec(query, name, email, time_create, mdp)
+	if err != nil {
+		return fmt.Errorf("Erreur lors de l'insertion de l'utilisateur : %v", err)
+	}
+	return nil
+}
+
+func deleteUser(db *sql.DB, id int) error {
+	query := "DELETE FROM users WHERE id = ?"
+	_, err := db.Exec(query, id)
+	if err != nil {
+		return fmt.Errorf("Erreur lors de la suppression de l'utilisateur : %v", err)
+	}
+	return nil
 }
