@@ -49,7 +49,7 @@ class SummonerStats {
 }
 
 class ApiService {
-  static const _apiKey = 'notre api key riot';
+  static const _apiKey = 'RGAPI-fe38694a-ea66-4b15-a350-cd8b12abc707';
   static const _baseUrl = 'https://euw1.api.riotgames.com';
   
   static Future<SummonerStats> fetchStats(String summonerName) async {
@@ -96,60 +96,74 @@ class HomePage extends StatefulWidget {
 }
 
 class _HomePageState extends State<HomePage> {
-  final TextEditingController _controller = TextEditingController();
-  bool _loading = false;
-  SummonerStats? _stats;
-  String? _error;
+  int _bottomIndex = 0;
+  final List<IconData> _bottomIcons = [
+    Icons.home,
+    Icons.explore,
+    Icons.shopping_cart,
+    Icons.notifications_none,
+    Icons.person_outline,
+  ];
 
-  Future<void> _getStats() async {
-    setState(() {
-      _loading = true;
-      _error = null;
-      _stats = null;
-    });
-    try {
-      final stats = await ApiService.fetchStats(_controller.text.trim());
-      setState(() {
-        _stats = stats;
-      });
-    } catch (e) {
-      setState(() {
-        _error = e.toString();
-      });
-    } finally {
-      setState(() {
-        _loading = false;
-      });
-    }
+  Widget _buildCategory(String label, IconData icon, bool selected) {
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+      decoration: BoxDecoration(
+        border: Border.all(color: selected ? Colors.white : Colors.grey),
+        borderRadius: BorderRadius.circular(20),
+      ),
+      child: Row(
+        children: [
+          Icon(icon, color: selected ? Colors.white : Colors.grey, size: 18),
+          const SizedBox(width: 6),
+          Text(label, style: TextStyle(color: selected ? Colors.white : Colors.grey)),
+        ],
+      ),
+    );
   }
 
-  @override
-  void dispose() {
-    _controller.dispose();
-    super.dispose();
-  }
-
-  Widget _buildStatsCard(SummonerStats stats) {
-    return Card(
-      margin: const EdgeInsets.symmetric(vertical: 20, horizontal: 16),
-      elevation: 4,
-      child: Padding(
-        padding: const EdgeInsets.all(16),
-        child: Column(
-          children: [
-            Text(
-              stats.summonerName,
-              style: Theme.of(context).textTheme.headlineSmall,
+  Widget _buildBanner(String imageAsset, String title) {
+    return ClipRRect(
+      borderRadius: BorderRadius.circular(16),
+      child: Stack(
+        children: [
+          Image.asset(imageAsset, height: 140, width: double.infinity, fit: BoxFit.cover),
+          Container(
+            height: 140,
+            decoration: BoxDecoration(
+              gradient: LinearGradient(
+                colors: [Colors.black54, Colors.transparent],
+                begin: Alignment.bottomCenter,
+                end: Alignment.topCenter,
+              ),
             ),
-            const SizedBox(height: 8),
-            Text('${stats.tier} ${stats.rank}'),
-            const SizedBox(height: 8),
-            Text('Wins: ${stats.wins}'),
-            Text('Losses: ${stats.losses}'),
-            const SizedBox(height: 8),
-            Text('Win Rate: ${((stats.wins / (stats.wins + stats.losses)) * 100).toStringAsFixed(1)}%'),
-          ],
-        ),
+          ),
+          Positioned(
+            left: 16,
+            bottom: 16,
+            child: Text(title, style: const TextStyle(color: Colors.white, fontSize: 20, fontWeight: FontWeight.bold)),
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildChampionCard(String imageAsset, String name, String subtitle) {
+    return Container(
+      width: 120,
+      margin: const EdgeInsets.only(right: 12),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          ClipRRect(
+            borderRadius: BorderRadius.circular(12),
+            child: Image.asset(imageAsset, height: 120, width: 120, fit: BoxFit.cover),
+          ),
+          const SizedBox(height: 8),
+          Text(name, style: const TextStyle(color: Colors.white, fontWeight: FontWeight.bold)),
+          const SizedBox(height: 4),
+          Text(subtitle, style: const TextStyle(color: Colors.grey, fontSize: 12)),
+        ],
       ),
     );
   }
@@ -157,38 +171,80 @@ class _HomePageState extends State<HomePage> {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
+      backgroundColor: const Color(0xFF0A0E21),
       appBar: AppBar(
-        title: Text(widget.title),
+        backgroundColor: const Color(0xFF0A0E21),
+        elevation: 0,
+        title: Container(
+          height: 40,
+          decoration: BoxDecoration(
+            color: const Color(0xFF1D1F33),
+            borderRadius: BorderRadius.circular(8),
+          ),
+          child: const TextField(
+            decoration: InputDecoration(
+              prefixIcon: Icon(Icons.search, color: Colors.grey),
+              hintText: 'Rechercher',
+              hintStyle: TextStyle(color: Colors.grey),
+              border: InputBorder.none,
+            ),
+          ),
+        ),
       ),
-      body: Padding(
-        padding: const EdgeInsets.all(16),
+      body: SingleChildScrollView(
+        padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
         child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            TextField(
-              controller: _controller,
-              decoration: const InputDecoration(
-                labelText: 'Summoner Name',
-                border: OutlineInputBorder(),
-              ),
-              onSubmitted: (_) => _getStats(),
+            // Categories row
+            Row(
+              mainAxisAlignment: MainAxisAlignment.spaceBetween,
+              children: [
+                _buildCategory('Accueil', Icons.favorite_border, true),
+                _buildCategory('Statistiques', Icons.access_time, false),
+                _buildCategory('Tier List', Icons.show_chart, false),
+                _buildCategory('Plus', Icons.list, false),
+              ],
+            ),
+            const SizedBox(height: 16),
+            // Banners
+            _buildBanner('assets/images/statistiques.jpg', 'Statistiques'),
+            const SizedBox(height: 12),
+            _buildBanner('assets/images/tier_list.jpg', 'Tier List'),
+            const SizedBox(height: 24),
+            // Popular builds header
+            Row(
+              mainAxisAlignment: MainAxisAlignment.spaceBetween,
+              children: const [
+                Text('Builds les plus populaires', style: TextStyle(color: Colors.white, fontSize: 18, fontWeight: FontWeight.bold)),
+                Icon(Icons.arrow_forward, color: Colors.white),
+              ],
             ),
             const SizedBox(height: 12),
-            ElevatedButton(
-              onPressed: _loading ? null : _getStats,
-              child: _loading
-                  ? const CircularProgressIndicator()
-                  : const Text('Get Stats'),
-            ),
-            if (_error != null) ...[
-              const SizedBox(height: 12),
-              Text(
-                _error!,
-                style: const TextStyle(color: Colors.red),
+            // Horizontal champion list
+            SizedBox(
+              height: 180,
+              child: ListView(
+                scrollDirection: Axis.horizontal,
+                children: [
+                  _buildChampionCard('assets/images/mel.jpg', 'Mel', 'Découvrez le nouveau champion'),
+                  _buildChampionCard('assets/images/ambessa.jpg', 'Ambessa', 'Découvrez le nouveau champion'),
+                  _buildChampionCard('assets/images/aurora.jpg', 'Aurora', 'Découvrez le nouveau champion'),
+                ],
               ),
-            ],
-            if (_stats != null) _buildStatsCard(_stats!),
+            ),
           ],
         ),
+      ),
+      bottomNavigationBar: BottomNavigationBar(
+        backgroundColor: Colors.white,
+        currentIndex: _bottomIndex,
+        onTap: (i) => setState(() => _bottomIndex = i),
+        selectedItemColor: Colors.black,
+        unselectedItemColor: Colors.grey,
+        showSelectedLabels: false,
+        showUnselectedLabels: false,
+        items: _bottomIcons.map((icon) => BottomNavigationBarItem(icon: Icon(icon), label: '')).toList(),
       ),
     );
   }
