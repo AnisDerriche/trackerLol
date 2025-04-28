@@ -266,6 +266,7 @@ class SummonerStats {
 class ApiService {
   static const _apiKey = 'RGAPI-fe38694a-ea66-4b15-a350-cd8b12abc707';
   static const _baseUrl = 'https://euw1.api.riotgames.com';
+  static const _dataDragonUrl = 'https://ddragon.leagueoflegends.com/cdn/14.7.1/data/en_US/champion.json';
   
   static Future<SummonerStats> fetchStats(String summonerName) async {
     final summonerResponse = await http.get(
@@ -291,6 +292,27 @@ class ApiService {
     if (soloQueue == null) {
       throw Exception('No solo queue data');
     }
+    Future<String> fetchChampionSplashUrl(String championName) async {
+    // 1. Récupérer les données de DataDragon pour les champions
+    final championsResponse = await http.get(Uri.parse(_dataDragonUrl));
+    if (championsResponse.statusCode != 200) {
+      throw Exception('Failed to load champion data');
+    }
+    
+    // 2. Extraire les données des champions
+    final championsData = json.decode(championsResponse.body)['data'] as Map<String, dynamic>;
+
+    // 3. Vérifier si le champion existe dans les données
+    if (!championsData.containsKey(championName)) {
+      throw Exception('Champion not found');
+    }
+
+    // 4. Générer l'URL du splash art
+    final championId = championsData[championName]['id'];
+    final splashUrl = 'https://ddragon.leagueoflegends.com/cdn/img/champion/splash/${championId}_0.jpg';
+    
+    return splashUrl;
+  }
 
     return SummonerStats(
       summonerName: summonerData['name'],
