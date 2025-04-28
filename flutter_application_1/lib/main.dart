@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'dart:convert';
 import 'package:http/http.dart' as http;
+import 'dart:async';
 
 void main() {
   runApp(const MyApp());
@@ -301,7 +302,17 @@ class ApiService {
     if (soloQueue == null) {
       throw Exception('No solo queue data');
     }
-    Future<String> fetchChampionSplashUrl(String championName) async {
+
+    return SummonerStats(
+      summonerName: summonerData['name'],
+      tier: soloQueue['tier'],
+      rank: soloQueue['rank'],
+      wins: soloQueue['wins'],
+      losses: soloQueue['losses'],
+    );
+  }
+
+  static Future<String> fetchChampionSplashUrl(String championName) async {
     // 1. Récupérer les données de DataDragon pour les champions
     final championsResponse = await http.get(Uri.parse(_dataDragonUrl));
     if (championsResponse.statusCode != 200) {
@@ -311,25 +322,23 @@ class ApiService {
     // 2. Extraire les données des champions
     final championsData = json.decode(championsResponse.body)['data'] as Map<String, dynamic>;
 
-    // 3. Vérifier si le champion existe dans les données
-    if (!championsData.containsKey(championName)) {
+    // 3. Rechercher la clé correspondant au nom du champion (championName est le nom affiché, ex: 'Aatrox')
+    String? dataKey;
+    for (var entry in championsData.entries) {
+      if ((entry.value['name'] as String).toLowerCase() == championName.toLowerCase()) {
+        dataKey = entry.key;
+        break;
+      }
+    }
+    if (dataKey == null) {
       throw Exception('Champion not found');
     }
 
     // 4. Générer l'URL du splash art
-    final championId = championsData[championName]['id'];
+    final championId = championsData[dataKey]['id'];
     final splashUrl = 'https://ddragon.leagueoflegends.com/cdn/img/champion/splash/${championId}_0.jpg';
-    
-    return splashUrl;
-  }
 
-    return SummonerStats(
-      summonerName: summonerData['name'],
-      tier: soloQueue['tier'],
-      rank: soloQueue['rank'],
-      wins: soloQueue['wins'],
-      losses: soloQueue['losses'],
-    );
+    return splashUrl;
   }
 }
 
@@ -402,7 +411,10 @@ class _HomePageState extends State<HomePage> {
     );
   }
 
-  Widget _buildChampionCard(String imageAsset, String name, String subtitle) {
+  Widget _buildChampionCard(FutureOr<String> imageSource, String name, String subtitle) {
+    final Future<String> imageFuture = imageSource is String
+        ? Future.value(imageSource)
+        : imageSource as Future<String>;
     return Container(
       width: 120,
       margin: const EdgeInsets.only(right: 12),
@@ -411,7 +423,32 @@ class _HomePageState extends State<HomePage> {
         children: [
           ClipRRect(
             borderRadius: BorderRadius.circular(12),
-            child: Image.asset(imageAsset, height: 120, width: 120, fit: BoxFit.cover),
+            child: FutureBuilder<String>(
+              future: imageFuture,
+              builder: (context, snapshot) {
+                if (snapshot.connectionState != ConnectionState.done) {
+                  return SizedBox(
+                    width: 120,
+                    height: 120,
+                    child: Center(child: CircularProgressIndicator()),
+                  );
+                } else if (snapshot.hasError) {
+                  return Image.asset(
+                    'assets/images/test.png',
+                    height: 120,
+                    width: 120,
+                    fit: BoxFit.cover,
+                  );
+                } else {
+                  return Image.network(
+                    snapshot.data!,
+                    height: 120,
+                    width: 120,
+                    fit: BoxFit.cover,
+                  );
+                }
+              },
+            ),
           ),
           const SizedBox(height: 8),
           Text(name, style: const TextStyle(color: Colors.white, fontWeight: FontWeight.bold)),
@@ -503,9 +540,9 @@ class _HomePageState extends State<HomePage> {
                       child: ListView(
                         scrollDirection: Axis.horizontal,
                         children: [
-                          _buildChampionCard('assets/images/test.png', 'Mel', 'Découvrez le nouveau champion'),
-                          _buildChampionCard('assets/images/test.png', 'Ambessa', 'Découvrez le nouveau champion'),
-                          _buildChampionCard('assets/images/test.png', 'Aurora', 'Découvrez le nouveau champion'),
+                          _buildChampionCard(ApiService.fetchChampionSplashUrl("Mel"), 'Mel', 'Découvrez le nouveau champion'),
+                          _buildChampionCard(ApiService.fetchChampionSplashUrl("Ambessa"), 'Ambessa', 'Découvrez le nouveau champion'),
+                          _buildChampionCard(ApiService.fetchChampionSplashUrl("Aurora"), 'Aurora', 'Découvrez le nouveau champion'),
                         ],
                       ),
                     ),
