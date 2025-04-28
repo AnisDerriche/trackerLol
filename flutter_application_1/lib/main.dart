@@ -93,103 +93,112 @@ class _LoginPageState extends State<LoginPage> {
 }
 
 
-class ProfilePage extends StatelessWidget {
-  const ProfilePage({super.key});
+class ProfilePage extends StatefulWidget {
+  final String summonerName;
+  const ProfilePage({Key? key, required this.summonerName}) : super(key: key);
+
+  @override
+  State<ProfilePage> createState() => _ProfilePageState();
+}
+
+class _ProfilePageState extends State<ProfilePage> {
+  late Future<SummonerStats> _futureStats;
+
+  @override
+  void initState() {
+    super.initState();
+    _futureStats = ApiService.fetchStats(widget.summonerName);
+  }
 
   @override
   Widget build(BuildContext context) {
     return Scaffold(
       backgroundColor: const Color(0xFF0A0E21),
-      body: SingleChildScrollView(
-        padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            // --- En-tête profil ---
-            Row(
-              children: [
-                ClipRRect(
-                  borderRadius: BorderRadius.circular(8),
-                  child: Image.asset(
-                    'assets/images/test.png',
-                    height: 64, width: 64, fit: BoxFit.cover,
+      body: FutureBuilder<SummonerStats>(
+        future: _futureStats,
+        builder: (context, snapshot) {
+          if (snapshot.connectionState == ConnectionState.waiting) {
+            return const Center(child: CircularProgressIndicator());
+          } else if (snapshot.hasError) {
+            return Center(child: Text('Erreur: ${snapshot.error}', style: const TextStyle(color: Colors.white)));
+          } else {
+            final stats = snapshot.data!;
+            return SingleChildScrollView(
+              padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  // --- En-tête profil ---
+                  Row(
+                    children: [
+                      ClipRRect(
+                        borderRadius: BorderRadius.circular(8),
+                        child: Image.asset(
+                          'assets/images/test.png',
+                          height: 64, width: 64, fit: BoxFit.cover,
+                        ),
+                      ),
+                      const SizedBox(width: 12),
+                      Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          Text(
+                            stats.summonerName,
+                            style: const TextStyle(color: Colors.white, fontSize: 18),
+                          ),
+                          const SizedBox(height: 4),
+                          Text(
+                            '${stats.tier} ${stats.rank}',
+                            style: const TextStyle(color: Colors.grey, fontSize: 14),
+                          ),
+                        ],
+                      ),
+                    ],
                   ),
-                ),
-                const SizedBox(width: 12),
-                Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: const [
-                    Text(
-                      '#Nom du Joueur#Id',
-                      style: TextStyle(color: Colors.white, fontSize: 18),
+                  const SizedBox(height: 16),
+                  Text(
+                    'Victoires: ${stats.wins}   Défaites: ${stats.losses}',
+                    style: const TextStyle(color: Colors.white, fontSize: 16),
+                  ),
+                  const SizedBox(height: 24),
+                  // --- Boutons Résumé / Champions / Maîtrise / …
+                  SingleChildScrollView(
+                    scrollDirection: Axis.horizontal,
+                    child: Row(
+                      children: const [
+                        _ProfileTab(label: 'Résumé', icon: Icons.favorite_border),
+                        SizedBox(width: 12),
+                        _ProfileTab(label: 'Champions', icon: Icons.access_time),
+                        SizedBox(width: 12),
+                        _ProfileTab(label: 'Maîtrise', icon: Icons.show_chart),
+                        SizedBox(width: 12),
+                        _ProfileTab(label: '', icon: Icons.more_horiz),
+                      ],
                     ),
-                    SizedBox(height: 4),
-                    Text(
-                      'dernière mise à jour',
-                      style: TextStyle(color: Colors.grey, fontSize: 12),
+                  ),
+                  const SizedBox(height: 24),
+                  // --- Onglets Tout / SoloQ / Flex / ARAM ---
+                  DefaultTabController(
+                    length: 4,
+                    child: TabBar(
+                      labelColor: Colors.white,
+                      unselectedLabelColor: Colors.grey,
+                      indicatorColor: Colors.white,
+                      tabs: const [
+                        Tab(text: 'Tout'),
+                        Tab(text: 'Solo/Q'),
+                        Tab(text: 'Flex'),
+                        Tab(text: 'ARAM'),
+                      ],
                     ),
-                  ],
-                ),
-              ],
-            ),
-            const SizedBox(height: 24),
-            // --- Boutons Résumé / Champions / Maîtrise / …
-            SingleChildScrollView(
-              scrollDirection: Axis.horizontal,
-              child: Row(
-                children: const [
-                  _ProfileTab(label: 'Résumé', icon: Icons.favorite_border),
-                  SizedBox(width: 12),
-                  _ProfileTab(label: 'Champions', icon: Icons.access_time),
-                  SizedBox(width: 12),
-                  _ProfileTab(label: 'Maîtrise', icon: Icons.show_chart),
-                  SizedBox(width: 12),
-                  _ProfileTab(label: '', icon: Icons.more_horiz),
+                  ),
+                  const SizedBox(height: 16),
+                  // TODO: insérer ici des widgets détaillant les stats par queue
                 ],
               ),
-            ),
-            const SizedBox(height: 24),
-            // --- Onglets Tout / SoloQ / Flex / ARAM ---
-            DefaultTabController(
-              length: 4,
-              child: TabBar(
-                labelColor: Colors.white,
-                unselectedLabelColor: Colors.grey,
-                indicatorColor: Colors.white,
-                tabs: const [
-                  Tab(text: 'Tout'),
-                  Tab(text: 'Solo/Q'),
-                  Tab(text: 'Flex'),
-                  Tab(text: 'ARAM'),
-                ],
-              ),
-            ),
-            const SizedBox(height: 16),
-            // TODO: ici tu peux mettre tes cartes de rang, tes stats, etc.
-            Container(
-              width: double.infinity,
-              height: 150,
-              decoration: BoxDecoration(
-                border: Border.all(color: Colors.white),
-                borderRadius: BorderRadius.circular(8),
-              ),
-              child: const Center(
-                child: Text(
-                  'Ici ton résumé de stats',
-                  style: TextStyle(color: Colors.white70),
-                ),
-              ),
-            ),
-            const SizedBox(height: 24),
-            // TODO: liste des dernières parties
-            const Center(
-              child: Text(
-                'Liste des dernières parties…',
-                style: TextStyle(color: Colors.white70),
-              ),
-            ),
-          ],
-        ),
+            );
+          }
+        },
       ),
     );
   }
@@ -342,7 +351,13 @@ class _HomePageState extends State<HomePage> {
     Icons.person_outline,
   ];
 
-  // Removed _pages field as per instructions.
+  final TextEditingController _searchController = TextEditingController();
+
+  @override
+  void dispose() {
+    _searchController.dispose();
+    super.dispose();
+  }
 
   Widget _buildCategory(String label, IconData icon, bool selected) {
     return Container(
@@ -420,13 +435,24 @@ class _HomePageState extends State<HomePage> {
             color: const Color(0xFF1D1F33),
             borderRadius: BorderRadius.circular(8),
           ),
-          child: const TextField(
-            decoration: InputDecoration(
+          child: TextField(
+            controller: _searchController,
+            style: const TextStyle(color: Colors.white),
+            decoration: const InputDecoration(
               prefixIcon: Icon(Icons.search, color: Colors.grey),
-              hintText: 'Rechercher',
+              hintText: 'Rechercher un summoner',
               hintStyle: TextStyle(color: Colors.grey),
               border: InputBorder.none,
             ),
+            onSubmitted: (value) {
+              if (value.isNotEmpty) {
+                Navigator.push(
+                  context,
+                  MaterialPageRoute(builder: (_) => ProfilePage(summonerName: value)),
+                );
+                _searchController.clear();
+              }
+            },
           ),
         ),
       ),
@@ -492,7 +518,7 @@ class _HomePageState extends State<HomePage> {
               ? const LoginPage()
               : _bottomIndex == 4
                   // Profile page
-                  ? const ProfilePage()
+                  ? ProfilePage(summonerName: "Summoner") // You may want to prompt for a name or store last searched
                   // Fallback
                   : const SizedBox(),
       bottomNavigationBar: BottomNavigationBar(
