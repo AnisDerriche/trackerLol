@@ -24,6 +24,9 @@ func main() {
 	r := gin.Default()
 	r.POST("/register", handleUserRegister)
 	r.POST("/login", handleUserLogin)
+	if err := r.Run(":8080"); err != nil {
+		log.Fatalf("Erreur au démarrage du serveur : %v", err)
+	}
 	db, _ := bdd()
 	defer db.Close()
 	//insertUser(db, "tom", "tesst@test.com", "2023-10-01 12:00:00", sql.NullInt64{Int64: 123456, Valid: true})
@@ -134,16 +137,16 @@ func handleUserRegister(apagnan *gin.Context) {
 	apagnan.JSON(http.StatusOK, gin.H{"message": "User registered successfully"})
 }
 
-func handleUserLogin(apagnan *gin.Context) {
+func handleUserLogin(c *gin.Context) {
 	var user User
-	if err := apagnan.ShouldBindJSON(&user); err != nil {
-		apagnan.JSON(http.StatusBadRequest, gin.H{"error": "Invalid input"})
+	if err := c.ShouldBindJSON(&user); err != nil {
+		c.JSON(http.StatusBadRequest, gin.H{"error": "Invalid input"})
 		return
 	}
 
 	db, err := bdd()
 	if err != nil {
-		apagnan.JSON(http.StatusInternalServerError, gin.H{"error": "Database connection error"})
+		c.JSON(http.StatusInternalServerError, gin.H{"error": "Database connection error"})
 		return
 	}
 	defer db.Close()
@@ -154,12 +157,13 @@ func handleUserLogin(apagnan *gin.Context) {
 	err = row.Scan(&user.Email, &user.Mdp)
 	if err != nil {
 		if err == sql.ErrNoRows {
-			apagnan.JSON(http.StatusUnauthorized, gin.H{"error": "Invalid credentials"})
+			c.JSON(http.StatusUnauthorized, gin.H{"error": "Invalid credentials"})
 			return
 		}
-		apagnan.JSON(http.StatusInternalServerError, gin.H{"error": "Database query error"})
+		c.JSON(http.StatusInternalServerError, gin.H{"error": "Database query error"})
 		return
 	}
 
-	apagnan.JSON(http.StatusOK, gin.H{"message": "Login successful", "user": user.Name})
+	// Retourne un message de succès
+	c.JSON(http.StatusOK, gin.H{"message": "Login successful", "user": user.Name})
 }
