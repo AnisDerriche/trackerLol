@@ -18,12 +18,74 @@ class _LoginPageState extends State<LoginPage> {
   final TextEditingController _usernameController = TextEditingController();
   final TextEditingController _passwordController = TextEditingController();
 
-  void _login() {
-    // Navigation directe vers la page d'accueil sans vÃ©rification
-    Navigator.pushReplacement(
-      context,
-      MaterialPageRoute(builder: (context) => const HomePage(title: 'LoL Stats Tracker')),
-    );
+  void _login() async {
+    String email = _usernameController.text;
+    String password = _passwordController.text;
+
+    Map<String, String> loginData = {
+      'email': email,
+      'mdp': password,
+    };
+
+    try {
+      final response = await http.post(
+        Uri.parse('http://127.0.0.1:8080/login'),
+        headers: {'Content-Type': 'application/json'},
+        body: json.encode(loginData),
+      );
+
+      if (response.statusCode == 200) {
+        final data = json.decode(response.body);
+        if (data['message'] == 'Login successful') {
+          Navigator.pushReplacement(
+            context,
+            MaterialPageRoute(builder: (context) => const HomePage(title: 'LoL Stats Tracker')),
+          );
+        }
+      } else {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text('Échec de la connexion : ${response.body}')),
+        );
+      }
+    } catch (e) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text('Erreur de connexion : $e')),
+      );
+    }
+  }
+
+  void _register() async {
+    String email = _usernameController.text;
+    String password = _passwordController.text;
+
+    Map<String, String> registerData = {
+      'email': email,
+      'mdp': password,
+      'name': 'UtilisateurTest',
+      'time_create': DateTime.now().toIso8601String(),
+    };
+
+    try {
+      final response = await http.post(
+        Uri.parse('http://127.0.0.1:8080/register'),
+        headers: {'Content-Type': 'application/json'},
+        body: json.encode(registerData),
+      );
+
+      if (response.statusCode == 200) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text('Inscription réussie !')),
+        );
+      } else {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text('Échec de l\'inscription : ${response.body}')),
+        );
+      }
+    } catch (e) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text('Erreur lors de l\'inscription : $e')),
+      );
+    }
   }
 
   @override
@@ -49,7 +111,7 @@ class _LoginPageState extends State<LoginPage> {
                 controller: _usernameController,
                 style: const TextStyle(color: Colors.white),
                 decoration: InputDecoration(
-                  hintText: 'Nom d\'utilisateur',
+                  hintText: 'Email',
                   hintStyle: const TextStyle(color: Colors.grey),
                   filled: true,
                   fillColor: const Color(0xFF1D1F33),
@@ -84,6 +146,16 @@ class _LoginPageState extends State<LoginPage> {
                   shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
                 ),
                 child: const Text('Se connecter', style: TextStyle(fontSize: 16)),
+              ),
+              const SizedBox(height: 12),
+              ElevatedButton(
+                onPressed: _register,
+                style: ElevatedButton.styleFrom(
+                  backgroundColor: Colors.green,
+                  padding: const EdgeInsets.symmetric(horizontal: 48, vertical: 12),
+                  shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+                ),
+                child: const Text('S\'inscrire', style: TextStyle(fontSize: 16)),
               ),
             ],
           ),
