@@ -28,7 +28,7 @@ class _LoginPageState extends State<LoginPage> {
 
     try {
       final response = await http.post(
-        Uri.parse('http://127.0.0.1:8080/login'),
+        Uri.parse('http://127.0.0.1:54931/login'),
         headers: {'Content-Type': 'application/json'},
         body: json.encode(loginData),
       );
@@ -66,7 +66,7 @@ class _LoginPageState extends State<LoginPage> {
 
     try {
       final response = await http.post(
-        Uri.parse('http://127.0.0.1:8080/register'),
+        Uri.parse('http://127.0.0.1:54931/register'),
         headers: {'Content-Type': 'application/json'},
         body: json.encode(registerData),
       );
@@ -237,7 +237,6 @@ class ProfilePage extends StatelessWidget {
               ),
             ),
             const SizedBox(height: 16),
-            // TODO: ici tu peux mettre tes cartes de rang, tes stats, etc.
             Container(
               width: double.infinity,
               height: 150,
@@ -253,7 +252,6 @@ class ProfilePage extends StatelessWidget {
               ),
             ),
             const SizedBox(height: 24),
-            // TODO: liste des dernières parties
             const Center(
               child: Text(
                 'Liste des dernières parties…',
