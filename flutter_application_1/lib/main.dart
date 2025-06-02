@@ -82,11 +82,12 @@ class _LoginPageState extends State<LoginPage> {
         );
       }
     } catch (e) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text('Erreur lors de l\'inscription : $e')),
-      );
-    }
+    print('Erreur réseau : $e');
+    ScaffoldMessenger.of(context).showSnackBar(
+    SnackBar(content: Text('Erreur lors de l\'inscription : $e')),
+    );
   }
+}
 
   @override
   Widget build(BuildContext context) {
