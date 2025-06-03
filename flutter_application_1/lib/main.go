@@ -16,18 +16,15 @@ import (
 var dsn = "anis:anisynov@tcp(100.42.185.129:3306)/trackerloldb"
 
 type User struct {
-	Name        string        `json:"name"`
-	Email       string        `json:"email"`
-	Time_create string        `json:"time_create"`
-	Mdp         sql.NullInt64 `json:"mdp"`
-	IDRiot      sql.NullInt64 `json:"id_riot"`
+	Email string `json:"email"`
+	Mdp   string `json:"mdp"`
 }
 
 func main() {
 	r := gin.Default()
 	r.Use(cors.Default())
 	r.Use(cors.New(cors.Config{
-		AllowOrigins:     []string{"http://localhost:8080", "http://127.0.0.1:8080"},
+		AllowOrigins:     []string{"*"},
 		AllowMethods:     []string{"POST", "GET", "OPTIONS"},
 		AllowHeaders:     []string{"Origin", "Content-Type"},
 		ExposeHeaders:    []string{"Content-Length"},
@@ -43,7 +40,6 @@ func main() {
 	db, _ := bdd()
 	defer db.Close()
 	//insertUser(db, "tom", "tesst@test.com", "2023-10-01 12:00:00", sql.NullInt64{Int64: 123456, Valid: true})
-	deleteUser(db, "tesst@test.com")
 	openbdd()
 }
 
@@ -90,14 +86,14 @@ func openbdd() {
 		var name string
 		var email string
 		var time_create string
-		var mdp sql.NullInt64
+		var mdp string
 		var IdRiot sql.NullInt64
 		if err := rows.Scan(&id, &name, &email, &time_create, &mdp, &IdRiot); err != nil {
 			log.Println("Erreur lors de la lecture de la ligne :", err)
 		}
 		mdpValue := "NULL"
-		if mdp.Valid {
-			mdpValue = fmt.Sprintf("%d", mdp.Int64)
+		if mdp != "" {
+			mdpValue = mdp
 		}
 		IdRiotValue := "NULL"
 		if IdRiot.Valid {
@@ -111,9 +107,9 @@ func openbdd() {
 	}
 }
 
-func insertUser(db *sql.DB, name string, email string, time_create string, mdp sql.NullInt64, IdRiot sql.NullInt64) error {
-	query := "INSERT INTO users (name, email, time_create, mdp, IdRiot) VALUES (?, ?, ?, ?, ?)"
-	_, err := db.Exec(query, name, email, time_create, mdp, IdRiot)
+func insertUser(db *sql.DB, email string, mdp string) error {
+	query := "INSERT INTO users (email, mdp) VALUES (?, ?)"
+	_, err := db.Exec(query, email, mdp)
 	if err != nil {
 		if mysqlErr, ok := err.(*mysql.MySQLError); ok && mysqlErr.Number == 1062 {
 			return fmt.Errorf("L'email %s est déjà utilisé", email)
@@ -135,7 +131,7 @@ func deleteUser(db *sql.DB, email string) error {
 func handleUserRegister(apagnan *gin.Context) {
 	var user User
 	if err := apagnan.ShouldBindJSON(&user); err != nil {
-		apagnan.JSON(http.StatusBadRequest, gin.H{"error": "Invalid input"})
+		apagnan.JSON(http.StatusBadRequest, gin.H{"error": "Invalid input1"})
 		return
 	}
 
@@ -146,7 +142,7 @@ func handleUserRegister(apagnan *gin.Context) {
 	}
 	defer db.Close()
 
-	err = insertUser(db, user.Name, user.Email, user.Time_create, user.Mdp, user.IDRiot)
+	err = insertUser(db, user.Email, user.Mdp)
 	if err != nil {
 		apagnan.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
 		return
@@ -158,7 +154,7 @@ func handleUserRegister(apagnan *gin.Context) {
 func handleUserLogin(c *gin.Context) {
 	var user User
 	if err := c.ShouldBindJSON(&user); err != nil {
-		c.JSON(http.StatusBadRequest, gin.H{"error": "Invalid input"})
+		c.JSON(http.StatusBadRequest, gin.H{"error": "Invalid input2"})
 		return
 	}
 
@@ -173,6 +169,7 @@ func handleUserLogin(c *gin.Context) {
 	row := db.QueryRow(query, user.Email, user.Mdp)
 
 	err = row.Scan(&user.Email, &user.Mdp)
+
 	if err != nil {
 		if err == sql.ErrNoRows {
 			c.JSON(http.StatusUnauthorized, gin.H{"error": "Invalid credentials"})
@@ -182,5 +179,5 @@ func handleUserLogin(c *gin.Context) {
 		return
 	}
 
-	c.JSON(http.StatusOK, gin.H{"message": "Login successful", "user": user.Name})
+	c.JSON(http.StatusOK, gin.H{"message": "Login successful"})
 }

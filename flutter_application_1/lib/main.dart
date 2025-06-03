@@ -20,12 +20,20 @@ class _LoginPageState extends State<LoginPage> {
 
   void _login() async {
     String email = _usernameController.text;
-    String password = _passwordController.text;
+    String mdp = _passwordController.text;
+    if (mdp.isEmpty) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text("Le mot de passe ne peut pas être vide")),
+      );
+      return;
+    }
 
-    Map<String, String> loginData = {
-      'email': email,
-      'mdp': password,
-    };
+
+  Map<String, dynamic> loginData = {
+    'email': email,
+    'mdp': mdp,
+  };
+
 
     try {
       final response = await http.post(
@@ -56,14 +64,19 @@ class _LoginPageState extends State<LoginPage> {
 
   void _register() async {
     String email = _usernameController.text;
-    String password = _passwordController.text;
+    String mdp = _passwordController.text;
+    if (mdp.isEmpty) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text("Le mot de passe ne peut pas être vide")),
+      );
+      return;
+    }
 
-    Map<String, String> registerData = {
+    Map<String, dynamic> registerData = {
       'email': email,
-      'mdp': password,
-      'name': 'UtilisateurTest',
-      'time_create': DateTime.now().toIso8601String(),
+      'mdp': mdp,
     };
+
 
     try {
       final response = await http.post(
