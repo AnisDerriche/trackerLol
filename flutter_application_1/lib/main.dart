@@ -182,7 +182,7 @@ class _LoginPageState extends State<LoginPage> {
 
 class ProfilePage extends StatefulWidget {
   final String summonerName;
-  const ProfilePage({Key? key, required this.summonerName}) : super(key: key);
+  const ProfilePage({super.key, required this.summonerName});
 
   @override
   State<ProfilePage> createState() => _ProfilePageState();
@@ -500,7 +500,7 @@ class _HomePageState extends State<HomePage> {
   Widget _buildChampionCard(FutureOr<String> imageSource, String name, String subtitle) {
     final Future<String> imageFuture = imageSource is String
         ? Future.value(imageSource)
-        : imageSource as Future<String>;
+        : imageSource;
     return Container(
       width: 120,
       margin: const EdgeInsets.only(right: 12),
