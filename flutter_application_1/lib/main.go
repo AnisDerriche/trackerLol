@@ -18,6 +18,7 @@ var dsn = "anis:anisynov@tcp(100.42.185.129:3306)/trackerloldb"
 type User struct {
 	Email string `json:"email"`
 	Mdp   string `json:"mdp"`
+	//-->IdRiot sql.NullInt64 `json:"id_riot"`
 }
 
 func main() {
@@ -108,8 +109,8 @@ func openbdd() {
 }
 
 func insertUser(db *sql.DB, email string, mdp string) error {
-	query := "INSERT INTO users (email, mdp) VALUES (?, ?)"
-	_, err := db.Exec(query, email, mdp)
+	query := "INSERT INTO users (email, mdp) VALUES (?, ?)" // A ajouter la colonne IdRiot
+	_, err := db.Exec(query, email, mdp)                    // A ajouter IdRiot
 	if err != nil {
 		if mysqlErr, ok := err.(*mysql.MySQLError); ok && mysqlErr.Number == 1062 {
 			return fmt.Errorf("L'email %s est déjà utilisé", email)
@@ -142,7 +143,7 @@ func handleUserRegister(apagnan *gin.Context) {
 	}
 	defer db.Close()
 
-	err = insertUser(db, user.Email, user.Mdp)
+	err = insertUser(db, user.Email, user.Mdp) // A ajouter IdRiot
 	if err != nil {
 		apagnan.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
 		return
@@ -165,10 +166,10 @@ func handleUserLogin(c *gin.Context) {
 	}
 	defer db.Close()
 
-	query := "SELECT email, mdp FROM users WHERE email = ? AND mdp = ?"
-	row := db.QueryRow(query, user.Email, user.Mdp)
+	query := "SELECT email, mdp FROM users WHERE email = ? AND mdp = ?" // A ajouter IdRiot
+	row := db.QueryRow(query, user.Email, user.Mdp)                     // A ajouter IdRiot
 
-	err = row.Scan(&user.Email, &user.Mdp)
+	err = row.Scan(&user.Email, &user.Mdp) // A ajouter IdRiot
 
 	if err != nil {
 		if err == sql.ErrNoRows {
