@@ -2,6 +2,7 @@ package main
 
 import (
 	"database/sql"
+	"encoding/json"
 	"fmt"
 	"log"
 	"net/http"
@@ -13,12 +14,12 @@ import (
 	_ "github.com/go-sql-driver/mysql"
 )
 
-var dsn = "anis:anisynov@tcp(100.42.185.129:3306)/trackerloldb"
+var dsn = "anis:anisynov@tcp(163.5.143.64:3306)/trackerloldb"
 
 type User struct {
-	Email string `json:"email"`
-	Mdp   string `json:"mdp"`
-	//-->IdRiot sql.NullInt64 `json:"id_riot"`
+	Email      string   `json:"email"`
+	Mdp        string   `json:"mdp"`
+	Historique []string `json:"historique"`
 }
 
 func main() {
@@ -33,6 +34,7 @@ func main() {
 		MaxAge:           12 * time.Hour,
 	}))
 
+	r.GET("/history", handleGetHistorique)
 	r.POST("/register", handleUserRegister)
 	r.POST("/login", handleUserLogin)
 	if err := r.Run(":8080"); err != nil {
@@ -109,30 +111,30 @@ func openbdd() {
 }
 
 func insertUser(db *sql.DB, email string, mdp string) error {
-	query := "INSERT INTO users (email, mdp) VALUES (?, ?)" // A ajouter la colonne IdRiot
-	_, err := db.Exec(query, email, mdp)                    // A ajouter IdRiot
+	query := "INSERT INTO users (email, mdp) VALUES (?, ?)"
+	_, err := db.Exec(query, email, mdp)
 	if err != nil {
 		if mysqlErr, ok := err.(*mysql.MySQLError); ok && mysqlErr.Number == 1062 {
-			return fmt.Errorf("L'email %s est déjà utilisé", email)
+			return fmt.Errorf("l'email %s est déjà utilisé", email)
 		}
-		return fmt.Errorf("Erreur lors de l'insertion de l'utilisateur : %v", err)
+		return fmt.Errorf("erreur lors de l'insertion de l'utilisateur : %v", err)
 	}
 	return nil
 }
 
-func deleteUser(db *sql.DB, email string) error {
-	query := "DELETE FROM users WHERE email = ?"
-	_, err := db.Exec(query, email)
-	if err != nil {
-		return fmt.Errorf("Erreur lors de la suppression de l'utilisateur : %v", err)
-	}
-	return nil
-}
+//func deleteUser(db *sql.DB, email string) error {
+//query := "DELETE FROM users WHERE email = ?"
+//_, err := db.Exec(query, email)
+//if err != nil {
+//	return fmt.Errorf("Erreur lors de la suppression de l'utilisateur : %v", err)
+//}
+//return nil
+//}
 
 func handleUserRegister(apagnan *gin.Context) {
 	var user User
 	if err := apagnan.ShouldBindJSON(&user); err != nil {
-		apagnan.JSON(http.StatusBadRequest, gin.H{"error": "Invalid input1"})
+		apagnan.JSON(http.StatusBadRequest, gin.H{"error": "mauvaise requête, données invalides handleUserRegister"})
 		return
 	}
 
@@ -143,7 +145,7 @@ func handleUserRegister(apagnan *gin.Context) {
 	}
 	defer db.Close()
 
-	err = insertUser(db, user.Email, user.Mdp) // A ajouter IdRiot
+	err = insertUser(db, user.Email, user.Mdp)
 	if err != nil {
 		apagnan.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
 		return
@@ -155,7 +157,7 @@ func handleUserRegister(apagnan *gin.Context) {
 func handleUserLogin(c *gin.Context) {
 	var user User
 	if err := c.ShouldBindJSON(&user); err != nil {
-		c.JSON(http.StatusBadRequest, gin.H{"error": "Invalid input2"})
+		c.JSON(http.StatusBadRequest, gin.H{"error": "Mauvaise requête, données invalides handleUserLogin"})
 		return
 	}
 
@@ -166,10 +168,10 @@ func handleUserLogin(c *gin.Context) {
 	}
 	defer db.Close()
 
-	query := "SELECT email, mdp FROM users WHERE email = ? AND mdp = ?" // A ajouter IdRiot
-	row := db.QueryRow(query, user.Email, user.Mdp)                     // A ajouter IdRiot
+	query := "SELECT email, mdp FROM users WHERE email = ? AND mdp = ?"
+	row := db.QueryRow(query, user.Email, user.Mdp)
 
-	err = row.Scan(&user.Email, &user.Mdp) // A ajouter IdRiot
+	err = row.Scan(&user.Email, &user.Mdp)
 
 	if err != nil {
 		if err == sql.ErrNoRows {
@@ -181,4 +183,65 @@ func handleUserLogin(c *gin.Context) {
 	}
 
 	c.JSON(http.StatusOK, gin.H{"message": "Login successful"})
+}
+
+func appendToUserHistorique(db *sql.DB, email, newRiotID string) error {
+	var historiqueJSON string
+	err := db.QueryRow("SELECT historique FROM user WHERE email = ?", email).Scan(&historiqueJSON)
+	if err != nil {
+		return err
+	}
+
+	var historique []string
+	if historiqueJSON != "" {
+		if err := json.Unmarshal([]byte(historiqueJSON), &historique); err != nil {
+			return err
+		}
+	}
+	for _, id := range historique {
+		if id == newRiotID {
+			return nil
+		}
+	}
+	historique = append(historique, newRiotID)
+
+	newJSON, err := json.Marshal(historique)
+	if err != nil {
+		return err
+	}
+
+	_, err = db.Exec("UPDATE user SET historique = ? WHERE email = ?", string(newJSON), email)
+	return err
+}
+
+func handleGetHistorique(c *gin.Context) {
+	email := c.Query("email")
+	if email == "" {
+		c.JSON(http.StatusBadRequest, gin.H{"error": "email manquant"})
+		return
+	}
+
+	db, err := bdd()
+	if err != nil {
+		c.JSON(http.StatusInternalServerError, gin.H{"error": "Erreur DB"})
+		return
+	}
+	defer db.Close()
+
+	var historiqueJSON string
+	err = db.QueryRow("SELECT historique FROM user WHERE email = ?", email).Scan(&historiqueJSON)
+	if err != nil {
+		c.JSON(http.StatusInternalServerError, gin.H{"error": "Utilisateur introuvable"})
+		return
+	}
+
+	var historique []string
+	if historiqueJSON != "" {
+		if err := json.Unmarshal([]byte(historiqueJSON), &historique); err != nil {
+			c.JSON(http.StatusInternalServerError, gin.H{"error": "Erreur parsing JSON"})
+			return
+		}
+	}
+
+	c.JSON(http.StatusOK, gin.H{"history": historique})
 }
