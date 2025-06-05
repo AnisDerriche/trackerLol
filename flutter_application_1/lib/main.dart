@@ -2,6 +2,10 @@ import 'package:flutter/material.dart';
 import 'dart:convert';
 import 'package:http/http.dart' as http;
 import 'dart:async';
+import 'package:google_fonts/google_fonts.dart';
+import 'services/riot_api_service.dart';
+import 'app_theme.dart';
+import 'gradient_scaffold.dart';
 
 void main() {
   runApp(const MyApp());
@@ -104,72 +108,49 @@ class _LoginPageState extends State<LoginPage> {
 
   @override
   Widget build(BuildContext context) {
-    return Scaffold(
-      backgroundColor: const Color(0xFF0A0E21),
+    return GradientScaffold(
       body: Center(
         child: Padding(
           padding: const EdgeInsets.all(24.0),
           child: Column(
             mainAxisAlignment: MainAxisAlignment.center,
             children: [
-              const Text(
+              Text(
                 'Connexion',
-                style: TextStyle(
-                  color: Colors.white,
-                  fontSize: 28,
-                  fontWeight: FontWeight.bold,
-                ),
+                style: Theme.of(context).textTheme.displayLarge,
               ),
               const SizedBox(height: 32),
               TextField(
                 controller: _usernameController,
-                style: const TextStyle(color: Colors.white),
-                decoration: InputDecoration(
+                decoration: const InputDecoration(
+                  prefixIcon: Icon(Icons.person, color: Colors.grey),
                   hintText: 'Email',
-                  hintStyle: const TextStyle(color: Colors.grey),
-                  filled: true,
-                  fillColor: const Color(0xFF1D1F33),
-                  border: OutlineInputBorder(
-                    borderRadius: BorderRadius.circular(12),
-                    borderSide: BorderSide.none,
-                  ),
                 ),
               ),
               const SizedBox(height: 16),
               TextField(
                 controller: _passwordController,
                 obscureText: true,
-                style: const TextStyle(color: Colors.white),
-                decoration: InputDecoration(
+                decoration: const InputDecoration(
+                  prefixIcon: Icon(Icons.lock, color: Colors.grey),
                   hintText: 'Mot de passe',
-                  hintStyle: const TextStyle(color: Colors.grey),
-                  filled: true,
-                  fillColor: const Color(0xFF1D1F33),
-                  border: OutlineInputBorder(
-                    borderRadius: BorderRadius.circular(12),
-                    borderSide: BorderSide.none,
-                  ),
                 ),
               ),
               const SizedBox(height: 24),
               ElevatedButton(
                 onPressed: _login,
-                style: ElevatedButton.styleFrom(
-                  backgroundColor: Colors.blueGrey,
-                  padding: const EdgeInsets.symmetric(horizontal: 48, vertical: 12),
-                  shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+                child: const Padding(
+                  padding: EdgeInsets.symmetric(horizontal: 48, vertical: 12),
+                  child: Text('Se connecter'),
                 ),
-                child: const Text('Se connecter', style: TextStyle(fontSize: 16)),
               ),
               const SizedBox(height: 12),
               ElevatedButton(
                 onPressed: _register,
-                style: ElevatedButton.styleFrom(
-                  backgroundColor: Colors.green,
-                  padding: const EdgeInsets.symmetric(horizontal: 48, vertical: 12),
-                  shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+                child: const Padding(
+                  padding: EdgeInsets.symmetric(horizontal: 48, vertical: 12),
+                  child: Text("S'inscrire"),
                 ),
-                child: const Text('S\'inscrire', style: TextStyle(fontSize: 16)),
               ),
             ],
           ),
@@ -190,17 +171,69 @@ class ProfilePage extends StatefulWidget {
 
 class _ProfilePageState extends State<ProfilePage> {
   late Future<SummonerStats> _futureStats;
+  final TextEditingController _searchController = TextEditingController();
+  int _selectedQueue = 0;
 
   @override
   void initState() {
     super.initState();
-    _futureStats = ApiService.fetchStats(widget.summonerName);
+    _searchController.text = widget.summonerName;
+    _futureStats = RiotApiService.fetchStats(widget.summonerName);
+  }
+
+  @override
+  void dispose() {
+    _searchController.dispose();
+    super.dispose();
+  }
+
+  void _performSearch() {
+    final query = _searchController.text.trim();
+    if (query.isNotEmpty) {
+      setState(() {
+        _futureStats = RiotApiService.fetchStats(query);
+      });
+    }
+  }
+
+  List<MatchStats> _filteredMatches(List<MatchStats> matches) {
+    switch (_selectedQueue) {
+      case 1:
+        return matches.where((m) => m.queueId == 420).toList();
+      case 2:
+        return matches.where((m) => m.queueId == 440).toList();
+      case 3:
+        return matches.where((m) => m.queueId == 450).toList();
+      default:
+        return matches;
+    }
   }
 
   @override
   Widget build(BuildContext context) {
-    return Scaffold(
-      backgroundColor: const Color(0xFF0A0E21),
+    return GradientScaffold(
+      appBar: AppBar(
+        backgroundColor: const Color(0xFF0A0E21),
+        elevation: 0,
+        title: Container(
+          height: 40,
+          decoration: BoxDecoration(
+            color: const Color(0xFF1D1F33),
+            borderRadius: BorderRadius.circular(8),
+          ),
+          child: TextField(
+            controller: _searchController,
+            style: const TextStyle(color: Colors.white),
+            decoration: const InputDecoration(
+              prefixIcon: Icon(Icons.search, color: Colors.grey),
+              hintText: 'Rechercher un Riot ID',
+              hintStyle: TextStyle(color: Colors.grey),
+              border: InputBorder.none,
+            ),
+            onSubmitted: (_) => _performSearch(),
+          ),
+        ),
+      ),
       body: FutureBuilder<SummonerStats>(
         future: _futureStats,
         builder: (context, snapshot) {
@@ -208,44 +241,70 @@ class _ProfilePageState extends State<ProfilePage> {
             return const Center(child: CircularProgressIndicator());
           } else if (snapshot.hasError) {
             return Center(child: Text('Erreur: ${snapshot.error}', style: const TextStyle(color: Colors.white)));
+          } else if (!snapshot.hasData || snapshot.data == null) {
+            return const Center(child: Text('Aucune donnée', style: TextStyle(color: Colors.white)));
           } else {
             final stats = snapshot.data!;
+            _searchController.text = stats.summonerName;
             return SingleChildScrollView(
               padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
                   // --- En-tête profil ---
-                  Row(
-                    children: [
-                      ClipRRect(
-                        borderRadius: BorderRadius.circular(8),
-                        child: Image.asset(
-                          'assets/images/test.png',
-                          height: 64, width: 64, fit: BoxFit.cover,
+                  Container(
+                    padding: const EdgeInsets.all(16),
+                    decoration: BoxDecoration(
+                      color: const Color(0xFF1D1F33),
+                      borderRadius: BorderRadius.circular(12),
+                    ),
+                    child: Row(
+                      children: [
+                        CircleAvatar(
+                          radius: 32,
+                          backgroundImage: NetworkImage(
+                            RiotApiService.profileIconUrl(stats.profileIconId),
+                          ),
                         ),
-                      ),
-                      const SizedBox(width: 12),
-                      Column(
-                        crossAxisAlignment: CrossAxisAlignment.start,
-                        children: [
-                          Text(
-                            stats.summonerName,
-                            style: const TextStyle(color: Colors.white, fontSize: 18),
-                          ),
-                          const SizedBox(height: 4),
-                          Text(
-                            '${stats.tier} ${stats.rank}',
-                            style: const TextStyle(color: Colors.grey, fontSize: 14),
-                          ),
-                        ],
-                      ),
-                    ],
+                        const SizedBox(width: 12),
+                        Column(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            Text(
+                              stats.summonerName,
+                              style: const TextStyle(
+                                color: Colors.white,
+                                fontSize: 20,
+                                fontWeight: FontWeight.bold,
+                              ),
+                            ),
+                            const SizedBox(height: 4),
+                            Text(
+                              '${stats.tier} ${stats.rank}',
+                              style: const TextStyle(color: Colors.grey),
+                            ),
+                            Text(
+                              'Niveau ${stats.summonerLevel}',
+                              style: const TextStyle(color: Colors.grey, fontSize: 12),
+                            ),
+                          ],
+                        ),
+                      ],
+                    ),
                   ),
-                  const SizedBox(height: 16),
+                  const SizedBox(height: 12),
                   Text(
-                    'Victoires: ${stats.wins}   Défaites: ${stats.losses}',
-                    style: const TextStyle(color: Colors.white, fontSize: 16),
+                    'Winrate: '
+                    '${stats.wins + stats.losses == 0 ? '0' : ((stats.wins / (stats.wins + stats.losses)) * 100).toStringAsFixed(1)}%',
+                    style: const TextStyle(color: Colors.white),
+                  ),
+                  const SizedBox(height: 4),
+                  LinearProgressIndicator(
+                    value: stats.wins + stats.losses == 0
+                        ? 0
+                        : stats.wins / (stats.wins + stats.losses),
+                    backgroundColor: Colors.white24,
+                    color: Theme.of(context).colorScheme.secondary,
                   ),
                   const SizedBox(height: 24),
                   // --- Boutons Résumé / Champions / Maîtrise / …
@@ -271,6 +330,7 @@ class _ProfilePageState extends State<ProfilePage> {
                       labelColor: Colors.white,
                       unselectedLabelColor: Colors.grey,
                       indicatorColor: Colors.white,
+                      onTap: (i) => setState(() => _selectedQueue = i),
                       tabs: const [
                         Tab(text: 'Tout'),
                         Tab(text: 'Solo/Q'),
@@ -280,7 +340,52 @@ class _ProfilePageState extends State<ProfilePage> {
                     ),
                   ),
                   const SizedBox(height: 16),
-                  // TODO: insérer ici des widgets détaillant les stats par queue
+                  ..._filteredMatches(stats.recentMatches).map(
+                    (m) => FutureBuilder<String>(
+                      future: RiotApiService.fetchChampionIconUrl(m.champion),
+                      builder: (context, snapshot) {
+                        final iconWidget =
+                            snapshot.connectionState == ConnectionState.done && snapshot.hasData
+                                ? CircleAvatar(
+                                    radius: 24,
+                                    backgroundImage: NetworkImage(snapshot.data!),
+                                  )
+                                : const SizedBox(width: 48, height: 48);
+                        return GestureDetector(
+                          onTap: () async {
+                            final detail =
+                                await RiotApiService.fetchMatchDetail(m.matchId);
+                            // ignore: use_build_context_synchronously
+                            Navigator.push(
+                              context,
+                              MaterialPageRoute(
+                                  builder: (_) => MatchDetailPage(detail: detail)),
+                            );
+                          },
+                          child: Card(
+                            color: const Color(0xFF1D1F33),
+                            shape: RoundedRectangleBorder(
+                                borderRadius: BorderRadius.circular(12)),
+                            child: ListTile(
+                              leading: iconWidget,
+                              title: Text(
+                                m.champion,
+                                style: const TextStyle(color: Colors.white),
+                              ),
+                              subtitle: Text(
+                                '${m.kills}/${m.deaths}/${m.assists}',
+                                style: const TextStyle(color: Colors.white70),
+                              ),
+                              trailing: Icon(
+                                m.win ? Icons.check_circle : Icons.cancel,
+                                color: m.win ? Colors.green : Colors.red,
+                              ),
+                            ),
+                          ),
+                        );
+                      },
+                    ),
+                  ),
                 ],
               ),
             );
@@ -317,6 +422,113 @@ class _ProfileTab extends StatelessWidget {
   }
 }
 
+class MatchDetailPage extends StatelessWidget {
+  final MatchDetail detail;
+  const MatchDetailPage({super.key, required this.detail});
+
+  Widget _buildTeam(String label, List<MatchParticipant> team) {
+    return Card(
+      color: const Color(0xFF1D1F33),
+      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+      child: Padding(
+        padding: const EdgeInsets.all(8),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Text(
+              label,
+              style:
+                  const TextStyle(color: Colors.white, fontWeight: FontWeight.bold),
+            ),
+            const SizedBox(height: 8),
+            ...team.map(
+              (p) => Padding(
+                padding: const EdgeInsets.symmetric(vertical: 4),
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    ListTile(
+                      contentPadding: EdgeInsets.zero,
+                      leading: FutureBuilder<String>(
+                        future: RiotApiService.fetchChampionIconUrl(p.champion),
+                        builder: (context, snapshot) {
+                          if (snapshot.connectionState != ConnectionState.done ||
+                              snapshot.data == null) {
+                            return const SizedBox(width: 40, height: 40);
+                          }
+                          return CircleAvatar(
+                            radius: 20,
+                            backgroundImage: NetworkImage(snapshot.data!),
+                          );
+                        },
+                      ),
+                      title: Text(
+                        p.summonerName,
+                        style: const TextStyle(color: Colors.white),
+                      ),
+                      subtitle: Text(
+                        '${p.kills}/${p.deaths}/${p.assists}',
+                        style: const TextStyle(color: Colors.white70),
+                      ),
+                    ),
+                    SizedBox(
+                      height: 24,
+                      child: Row(
+                        children: [
+                          for (final id in p.items)
+                            Padding(
+                              padding: const EdgeInsets.only(right: 4),
+                              child: Image.network(
+                                RiotApiService.itemIconUrl(id),
+                                width: 24,
+                                height: 24,
+                              ),
+                            ),
+                        ],
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      decoration: const BoxDecoration(
+        gradient: LinearGradient(
+          colors: [Color(0xFF22245A), Color(0xFF090979)],
+          begin: Alignment.topLeft,
+          end: Alignment.bottomRight,
+        ),
+      ),
+      child: Scaffold(
+        backgroundColor: Colors.transparent,
+      appBar: AppBar(
+        backgroundColor: const Color(0xFF0A0E21),
+        title: const Text('Détail du match'),
+      ),
+      body: SingleChildScrollView(
+        padding: const EdgeInsets.all(16),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            _buildTeam('Equipe 1', detail.blueTeam),
+            const SizedBox(height: 16),
+            _buildTeam('Equipe 2', detail.redTeam),
+          ],
+        ),
+      ),
+    ),
+  );
+  }
+}
+
 class MyApp extends StatelessWidget {
   const MyApp({super.key});
 
@@ -324,109 +536,13 @@ class MyApp extends StatelessWidget {
   Widget build(BuildContext context) {
     return MaterialApp(
       title: 'LoL Stats Tracker',
-      theme: ThemeData(
-        primarySwatch: Colors.blueGrey,
-        colorScheme: ColorScheme.fromSeed(seedColor: Colors.blueGrey),
-      ),
+      theme: AppTheme.darkTheme,
       home: const HomePage(title: 'LoL Stats Tracker'),
     );
   }
 }
 
-class SummonerStats {
-  final String summonerName;
-  final String tier;
-  final String rank;
-  final int wins;
-  final int losses;
 
-  SummonerStats({
-    required this.summonerName,
-    required this.tier,
-    required this.rank,
-    required this.wins,
-    required this.losses,
-  });
-
-  factory SummonerStats.fromJson(Map<String, dynamic> json) {
-    return SummonerStats(
-      summonerName: json['summonerName'],
-      tier: json['tier'],
-      rank: json['rank'],
-      wins: json['wins'],
-      losses: json['losses'],
-    );
-  }
-}
-
-class ApiService {
-  static const _apiKey = 'RGAPI-fe38694a-ea66-4b15-a350-cd8b12abc707';
-  static const _baseUrl = 'https://euw1.api.riotgames.com';
-  static const _dataDragonUrl = 'https://ddragon.leagueoflegends.com/cdn/14.7.1/data/en_US/champion.json';
-  
-  static Future<SummonerStats> fetchStats(String summonerName) async {
-    final summonerResponse = await http.get(
-      Uri.parse('$_baseUrl/lol/summoner/v4/summoners/by-name/$summonerName?api_key=$_apiKey'),
-    );
-    if (summonerResponse.statusCode != 200) {
-      throw Exception('Summoner not found');
-    }
-    final summonerData = json.decode(summonerResponse.body);
-    final id = summonerData['id'];
-
-    final leagueResponse = await http.get(
-      Uri.parse('$_baseUrl/lol/league/v4/entries/by-summoner/$id?api_key=$_apiKey'),
-    );
-    if (leagueResponse.statusCode != 200) {
-      throw Exception('League data not available');
-    }
-    final list = json.decode(leagueResponse.body) as List;
-    final soloQueue = list.firstWhere(
-      (entry) => entry['queueType'] == 'RANKED_SOLO_5x5',
-      orElse: () => null,
-    );
-    if (soloQueue == null) {
-      throw Exception('No solo queue data');
-    }
-
-    return SummonerStats(
-      summonerName: summonerData['name'],
-      tier: soloQueue['tier'],
-      rank: soloQueue['rank'],
-      wins: soloQueue['wins'],
-      losses: soloQueue['losses'],
-    );
-  }
-
-  static Future<String> fetchChampionSplashUrl(String championName) async {
-    // 1. Récupérer les données de DataDragon pour les champions
-    final championsResponse = await http.get(Uri.parse(_dataDragonUrl));
-    if (championsResponse.statusCode != 200) {
-      throw Exception('Failed to load champion data');
-    }
-    
-    // 2. Extraire les données des champions
-    final championsData = json.decode(championsResponse.body)['data'] as Map<String, dynamic>;
-
-    // 3. Rechercher la clé correspondant au nom du champion (championName est le nom affiché, ex: 'Aatrox')
-    String? dataKey;
-    for (var entry in championsData.entries) {
-      if ((entry.value['name'] as String).toLowerCase() == championName.toLowerCase()) {
-        dataKey = entry.key;
-        break;
-      }
-    }
-    if (dataKey == null) {
-      throw Exception('Champion not found');
-    }
-
-    // 4. Générer l'URL du splash art
-    final championId = championsData[dataKey]['id'];
-    final splashUrl = 'https://ddragon.leagueoflegends.com/cdn/img/champion/splash/${championId}_0.jpg';
-
-    return splashUrl;
-  }
-}
 
 class HomePage extends StatefulWidget {
   const HomePage({super.key, required this.title});
@@ -437,14 +553,6 @@ class HomePage extends StatefulWidget {
 }
 
 class _HomePageState extends State<HomePage> {
-  int _bottomIndex = 0;
-  final List<IconData> _bottomIcons = [
-    Icons.home,
-    Icons.explore,
-    Icons.shopping_cart,
-    Icons.notifications_none,
-    Icons.person_outline,
-  ];
 
   final TextEditingController _searchController = TextEditingController();
 
@@ -518,7 +626,7 @@ class _HomePageState extends State<HomePage> {
                     height: 120,
                     child: Center(child: CircularProgressIndicator()),
                   );
-                } else if (snapshot.hasError) {
+                } else if (snapshot.hasError || snapshot.data == null) {
                   return Image.asset(
                     'assets/images/test.png',
                     height: 120,
@@ -547,11 +655,20 @@ class _HomePageState extends State<HomePage> {
 
   @override
   Widget build(BuildContext context) {
-    return Scaffold(
-      backgroundColor: const Color(0xFF0A0E21),
+    return GradientScaffold(
       appBar: AppBar(
-        backgroundColor: const Color(0xFF0A0E21),
         elevation: 0,
+        actions: [
+          IconButton(
+            icon: const Icon(Icons.login),
+            onPressed: () {
+              Navigator.push(
+                context,
+                MaterialPageRoute(builder: (_) => const LoginPage()),
+              );
+            },
+          ),
+        ],
         title: Container(
           height: 40,
           decoration: BoxDecoration(
@@ -579,14 +696,25 @@ class _HomePageState extends State<HomePage> {
           ),
         ),
       ),
-      body: _bottomIndex == 0
-          // Home content
-          ? SafeArea(
+      body: SafeArea(
               child: SingleChildScrollView(
                 padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
+                    const Text(
+                      'Bienvenue sur LoL Stats',
+                      style: TextStyle(
+                          color: Colors.white,
+                          fontSize: 24,
+                          fontWeight: FontWeight.bold),
+                    ),
+                    const SizedBox(height: 8),
+                    const Text(
+                      'Recherchez un invocateur pour afficher ses statistiques.',
+                      style: TextStyle(color: Colors.white70),
+                    ),
+                    const SizedBox(height: 24),
                     // Categories row
                     SingleChildScrollView(
                       scrollDirection: Axis.horizontal,
@@ -626,34 +754,16 @@ class _HomePageState extends State<HomePage> {
                       child: ListView(
                         scrollDirection: Axis.horizontal,
                         children: [
-                          _buildChampionCard(ApiService.fetchChampionSplashUrl("Mel"), 'Mel', 'Découvrez le nouveau champion'),
-                          _buildChampionCard(ApiService.fetchChampionSplashUrl("Ambessa"), 'Ambessa', 'Découvrez le nouveau champion'),
-                          _buildChampionCard(ApiService.fetchChampionSplashUrl("Aurora"), 'Aurora', 'Découvrez le nouveau champion'),
+                          _buildChampionCard(RiotApiService.fetchChampionSplashUrl("Ahri"), 'Ahri', 'Découvrez le champion populaire'),
+                          _buildChampionCard(RiotApiService.fetchChampionSplashUrl("Garen"), 'Garen', 'Découvrez le champion populaire'),
+                          _buildChampionCard(RiotApiService.fetchChampionSplashUrl("Lux"), 'Lux', 'Découvrez le champion populaire'),
                         ],
                       ),
                     ),
                   ],
                 ),
               ),
-            )
-          : _bottomIndex == 1
-              // Login page
-              ? const LoginPage()
-              : _bottomIndex == 4
-                  // Profile page
-                  ? ProfilePage(summonerName: "Summoner") // You may want to prompt for a name or store last searched
-                  // Fallback
-                  : const SizedBox(),
-      bottomNavigationBar: BottomNavigationBar(
-        backgroundColor: Colors.white,
-        currentIndex: _bottomIndex,
-        onTap: (i) => setState(() => _bottomIndex = i),
-        selectedItemColor: Colors.black,
-        unselectedItemColor: Colors.grey,
-        showSelectedLabels: false,
-        showUnselectedLabels: false,
-        items: _bottomIcons.map((icon) => BottomNavigationBarItem(icon: Icon(icon), label: '')).toList(),
-      ),
+            ),
     );
   }
 }
