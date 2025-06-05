@@ -6,6 +6,8 @@ import 'package:google_fonts/google_fonts.dart';
 import 'services/riot_api_service.dart';
 import 'app_theme.dart';
 import 'gradient_scaffold.dart';
+import 'user_session.dart';
+import 'user_profile_page.dart';
 
 void main() {
   runApp(const MyApp());
@@ -49,6 +51,7 @@ class _LoginPageState extends State<LoginPage> {
       if (response.statusCode == 200) {
         final data = json.decode(response.body);
         if (data['message'] == 'Login successful') {
+          UserSession.email = email;
           Navigator.pushReplacement(
             context,
             MaterialPageRoute(builder: (context) => const HomePage(title: 'LoL Stats Tracker')),
@@ -109,6 +112,13 @@ class _LoginPageState extends State<LoginPage> {
   @override
   Widget build(BuildContext context) {
     return GradientScaffold(
+      appBar: AppBar(
+        leading: IconButton(
+          icon: const Icon(Icons.home),
+          onPressed: () => Navigator.pop(context),
+        ),
+        title: const Text('Connexion'),
+      ),
       body: Center(
         child: Padding(
           padding: const EdgeInsets.all(24.0),
@@ -659,15 +669,26 @@ class _HomePageState extends State<HomePage> {
       appBar: AppBar(
         elevation: 0,
         actions: [
-          IconButton(
-            icon: const Icon(Icons.login),
-            onPressed: () {
-              Navigator.push(
-                context,
-                MaterialPageRoute(builder: (_) => const LoginPage()),
-              );
-            },
-          ),
+          if (UserSession.isLoggedIn)
+            IconButton(
+              icon: const Icon(Icons.person),
+              onPressed: () {
+                Navigator.push(
+                  context,
+                  MaterialPageRoute(builder: (_) => const UserProfilePage()),
+                );
+              },
+            )
+          else
+            IconButton(
+              icon: const Icon(Icons.login),
+              onPressed: () {
+                Navigator.push(
+                  context,
+                  MaterialPageRoute(builder: (_) => const LoginPage()),
+                );
+              },
+            ),
         ],
         title: Container(
           height: 40,
