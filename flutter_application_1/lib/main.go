@@ -14,7 +14,7 @@ import (
 	_ "github.com/go-sql-driver/mysql"
 )
 
-var dsn = "anis:anisynov@tcp(163.5.143.64:3306)/trackerloldb"
+var dsn = "anis:anis@tcp(163.5.143.64:3306)/trackerloldb"
 
 type User struct {
 	Email      string   `json:"email"`
