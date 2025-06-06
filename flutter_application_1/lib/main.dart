@@ -200,9 +200,26 @@ class _ProfilePageState extends State<ProfilePage> {
   void _performSearch() {
     final query = _searchController.text.trim();
     if (query.isNotEmpty) {
+      if (UserSession.email != null) {
+        _addToHistory(query);
+      }
       setState(() {
         _futureStats = RiotApiService.fetchStats(query);
       });
+    }
+  }
+
+  Future<void> _addToHistory(String riotId) async {
+    final email = UserSession.email;
+    if (email == null) return;
+    try {
+      await http.post(
+        Uri.parse('http://163.5.143.64:8080/history'),
+        headers: {'Content-Type': 'application/json'},
+        body: json.encode({'email': email, 'riot_id': riotId}),
+      );
+    } catch (_) {
+      // ignore errors
     }
   }
 

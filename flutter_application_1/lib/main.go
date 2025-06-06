@@ -2,7 +2,6 @@ package main
 
 import (
 	"database/sql"
-	"encoding/json"
 	"fmt"
 	"log"
 	"net/http"
@@ -17,10 +16,9 @@ import (
 var dsn = "anis:anis@tcp(163.5.143.64:3306)/trackerloldb"
 
 type User struct {
-	ID         int      `json:"id"`
-	Email      string   `json:"email"`
-	Mdp        string   `json:"mdp"`
-	Historique []string `json:"historique"`
+	ID    int    `json:"id"`
+	Email string `json:"email"`
+	Mdp   string `json:"mdp"`
 }
 
 type UserHistorique struct {
@@ -41,6 +39,7 @@ func main() {
 	}))
 
 	r.GET("/history", handleGetHistorique)
+	r.POST("/history", handlePostHistorique)
 	r.POST("/register", handleUserRegister)
 	r.POST("/login", handleUserLogin)
 	if err := r.Run(":8080"); err != nil {
@@ -192,31 +191,21 @@ func handleUserLogin(c *gin.Context) {
 }
 
 func appendToUserHistorique(db *sql.DB, email, newRiotID string) error {
-	var historiqueJSON string
-	err := db.QueryRow("SELECT historique FROM user WHERE email = ?", email).Scan(&historiqueJSON)
-	if err != nil {
+	var userID int
+	if err := db.QueryRow("SELECT id FROM users WHERE email = ?", email).Scan(&userID); err != nil {
 		return err
 	}
 
-	var historique []string
-	if historiqueJSON != "" {
-		if err := json.Unmarshal([]byte(historiqueJSON), &historique); err != nil {
-			return err
-		}
-	}
-	for _, id := range historique {
-		if id == newRiotID {
-			return nil
-		}
-	}
-	historique = append(historique, newRiotID)
-
-	newJSON, err := json.Marshal(historique)
+	var count int
+	err := db.QueryRow("SELECT COUNT(*) FROM historique WHERE user_id = ? AND riot_id = ?", userID, newRiotID).Scan(&count)
 	if err != nil {
 		return err
 	}
+	if count > 0 {
+		return nil
+	}
 
-	_, err = db.Exec("UPDATE user SET historique = ? WHERE email = ?", string(newJSON), email)
+	_, err = db.Exec("INSERT INTO historique (user_id, riot_id) VALUES (?, ?)", userID, newRiotID)
 	return err
 }
 
@@ -234,20 +223,52 @@ func handleGetHistorique(c *gin.Context) {
 	}
 	defer db.Close()
 
-	var historiqueJSON string
-	err = db.QueryRow("SELECT historique FROM user WHERE email = ?", email).Scan(&historiqueJSON)
+	var userID int
+	err = db.QueryRow("SELECT id FROM users WHERE email = ?", email).Scan(&userID)
 	if err != nil {
 		c.JSON(http.StatusInternalServerError, gin.H{"error": "Utilisateur introuvable"})
 		return
 	}
 
+	rows, err := db.Query("SELECT riot_id FROM historique WHERE user_id = ?", userID)
+	if err != nil {
+		c.JSON(http.StatusInternalServerError, gin.H{"error": "Erreur récupération historique"})
+		return
+	}
+	defer rows.Close()
+
 	var historique []string
-	if historiqueJSON != "" {
-		if err := json.Unmarshal([]byte(historiqueJSON), &historique); err != nil {
-			c.JSON(http.StatusInternalServerError, gin.H{"error": "Erreur parsing JSON"})
-			return
+	for rows.Next() {
+		var rid string
+		if err := rows.Scan(&rid); err == nil {
+			historique = append(historique, rid)
 		}
 	}
 
 	c.JSON(http.StatusOK, gin.H{"history": historique})
+}
+
+func handlePostHistorique(c *gin.Context) {
+	var req struct {
+		Email  string `json:"email"`
+		RiotID string `json:"riot_id"`
+	}
+	if err := c.ShouldBindJSON(&req); err != nil {
+		c.JSON(http.StatusBadRequest, gin.H{"error": "données invalides"})
+		return
+	}
+
+	db, err := bdd()
+	if err != nil {
+		c.JSON(http.StatusInternalServerError, gin.H{"error": "Erreur DB"})
+		return
+	}
+	defer db.Close()
+
+	if err := appendToUserHistorique(db, req.Email, req.RiotID); err != nil {
+		c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
+		return
+	}
+
+	c.JSON(http.StatusOK, gin.H{"message": "historique mis à jour"})
 }

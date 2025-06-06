@@ -26,7 +26,7 @@ class _UserProfilePageState extends State<UserProfilePage> {
     if (email == null) return [];
     try {
       final response = await http
-          .get(Uri.parse('http://127.0.0.1:8080/history?email=$email'));
+          .get(Uri.parse('http://163.5.143.64:8080/history?email=$email'));
       if (response.statusCode == 200) {
         final data = json.decode(response.body) as Map<String, dynamic>;
         final list = (data['history'] as List<dynamic>?)
