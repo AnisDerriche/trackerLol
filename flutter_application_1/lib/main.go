@@ -92,23 +92,16 @@ func openbdd() {
 
 	for rows.Next() {
 		var id int
-		var name string
 		var email string
-		var time_create string
 		var mdp string
-		var IdRiot sql.NullInt64
-		if err := rows.Scan(&id, &name, &email, &time_create, &mdp, &IdRiot); err != nil {
+		if err := rows.Scan(&id, &email, &mdp); err != nil {
 			log.Println("Erreur lors de la lecture de la ligne :", err)
 		}
 		mdpValue := "NULL"
 		if mdp != "" {
 			mdpValue = mdp
 		}
-		IdRiotValue := "NULL"
-		if IdRiot.Valid {
-			IdRiotValue = fmt.Sprintf("%d", IdRiot.Int64)
-		}
-		fmt.Printf("ID: %d, Nom: %s, Email: %s, Time_create: %s, mdp: %s, IdRiot: %s\n", id, name, email, time_create, mdpValue, IdRiotValue)
+		fmt.Printf("ID: %d, Email: %s, mdp: %s, \n", id, email, mdpValue)
 	}
 
 	if err := rows.Err(); err != nil {
