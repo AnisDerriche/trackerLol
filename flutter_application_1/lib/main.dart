@@ -43,7 +43,7 @@ class _LoginPageState extends State<LoginPage> {
 
     try {
       final response = await http.post(
-        Uri.parse('http://127.0.0.1:8080/login'),
+        Uri.parse('http://163.5.143.64:8080/login'),
         headers: {'Content-Type': 'application/json'},
         body: json.encode(loginData),
       );
@@ -87,7 +87,7 @@ class _LoginPageState extends State<LoginPage> {
 
     try {
       final response = await http.post(
-        Uri.parse('http://127.0.0.1:8080/register'),
+        Uri.parse('http://163.5.143.64:8080/register'),
         headers: {'Content-Type': 'application/json'},
         body: json.encode(registerData),
       );
