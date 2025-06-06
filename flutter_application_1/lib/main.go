@@ -17,9 +17,15 @@ import (
 var dsn = "anis:anis@tcp(163.5.143.64:3306)/trackerloldb"
 
 type User struct {
+	ID         int      `json:"id"`
 	Email      string   `json:"email"`
 	Mdp        string   `json:"mdp"`
 	Historique []string `json:"historique"`
+}
+
+type UserHistorique struct {
+	User_id int    `json:"user_id"`
+	RiotID  string `json:"riot_id"`
 }
 
 func main() {
