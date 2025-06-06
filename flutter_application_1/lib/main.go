@@ -11,6 +11,7 @@ import (
 	"github.com/gin-gonic/gin"
 	"github.com/go-sql-driver/mysql"
 	_ "github.com/go-sql-driver/mysql"
+	"golang.org/x/crypto/bcrypt"
 )
 
 var dsn = "anis:anis@tcp(163.5.143.64:3306)/trackerloldb"
@@ -116,8 +117,13 @@ func openbdd() {
 }
 
 func insertUser(db *sql.DB, email string, mdp string) error {
+	hash, err := bcrypt.GenerateFromPassword([]byte(mdp), bcrypt.DefaultCost)
+	if err != nil {
+		return fmt.Errorf("erreur lors du hash du mot de passe : %v", err)
+	}
+
 	query := "INSERT INTO users (email, mdp) VALUES (?, ?)"
-	_, err := db.Exec(query, email, mdp)
+	_, err = db.Exec(query, email, string(hash))
 	if err != nil {
 		if mysqlErr, ok := err.(*mysql.MySQLError); ok && mysqlErr.Number == 1062 {
 			return fmt.Errorf("l'email %s est déjà utilisé", email)
@@ -173,17 +179,21 @@ func handleUserLogin(c *gin.Context) {
 	}
 	defer db.Close()
 
-	query := "SELECT email, mdp FROM users WHERE email = ? AND mdp = ?"
-	row := db.QueryRow(query, user.Email, user.Mdp)
-
-	err = row.Scan(&user.Email, &user.Mdp)
-
+	var hashedPassword string
+	query := "SELECT mdp FROM users WHERE email = ?"
+	row := db.QueryRow(query, user.Email)
+	err = row.Scan(&hashedPassword)
 	if err != nil {
 		if err == sql.ErrNoRows {
 			c.JSON(http.StatusUnauthorized, gin.H{"error": "Invalid credentials"})
 			return
 		}
 		c.JSON(http.StatusInternalServerError, gin.H{"error": "Database query error"})
+		return
+	}
+
+	if bcrypt.CompareHashAndPassword([]byte(hashedPassword), []byte(user.Mdp)) != nil {
+		c.JSON(http.StatusUnauthorized, gin.H{"error": "Invalid credentials"})
 		return
 	}
 
